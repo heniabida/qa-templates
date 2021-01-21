@@ -27,6 +27,6 @@ nginx-1:
       contents: Hello!
 
 qa-system:
-  defines: group
+  defines: process-group
   runnable-list:
     - /qa/nginx-1

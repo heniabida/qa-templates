@@ -1,0 +1,11 @@
+namespace: /chainlink2
+
+chainlink-db:
+  defines: runnable
+  inherits: postgres/12-alpine
+
+chainlink-1:
+  defines: runnable
+  inherits: /chainlink/common
+  variables:
+    db-host: <- get-hostname("chainlink2/chainlink-db", "postgres")

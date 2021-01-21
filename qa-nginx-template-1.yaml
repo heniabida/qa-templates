@@ -7,7 +7,7 @@ nginx-1:
     nginx:
       image: nginx:latest
       ports:
-        - 0.0.0.0:80:80
+        - 0.0.0.0:8000:8000
   variables:
     defines: variables
     volume:
@@ -18,6 +18,6 @@ nginx-1:
       value: "/usr/share/nginx/html" 
 
 qa-system:
-  defines: group
+  defines: process-group
   runnable-list:
     - /qa/nginx-1

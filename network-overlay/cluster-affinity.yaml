@@ -1,0 +1,33 @@
+namespace: /chainlink2
+
+chainlink-db:
+  defines: runnable
+  inherits: postgres/12-alpine
+  nodes:
+    defines: nodes
+    link-1:
+      provider: gcp
+      tag: chainlink-dev
+      instance-type: n2-standard-2
+      region: europe-west1-b
+      disk-size: 10
+    link-2:
+      provider: gcp
+      tag: chainlink-dev
+      instance-type: n2-standard-2
+      region: europe-west1-b
+      disk-size: 10
+  affinity:
+    defines: affinity
+    tag: chainlink-dev
+    name: link-1
+
+chainlink-1:
+  defines: runnable
+  inherits: /chainlink/common
+  variables:
+    db-host: <- get-hostname("chainlink2/chainlink-db", "postgres")
+  affinity:
+    defines: affinity
+    tag: chainlink-dev
+    name: link-2
