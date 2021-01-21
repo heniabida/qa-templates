@@ -1,0 +1,130 @@
+namespace: /chaos-cluster
+# https://github.com/robcowart/docker_compose_cookbook/blob/master/STACKS/influx_oss/docker-compose.yml
+references:
+  environment: &environment
+    environment:
+      - <- `INFLUXDB_URL=http://${influxdb_host}:${influxdb_port}`
+      - <- `INFLUXDB_URL_TCP=tcp://${influxdb_host}:${influxdb_port}`
+      - <- `INFLUXDB_DB_NAME=${influxdb_db_name}`
+common:
+  variables:
+    defines: variables
+    influxdb_host:
+      type: string
+      value: <- get-hostname("chaos-cluster/influxdb", "influxdb")
+    influxdb_port:
+      type: int
+      value: 8086
+    influxdb_db_name:
+      type: string
+      value: "telegraf"
+
+influxdb:
+  defines: runnable
+  version: latest #1.7
+  containers:
+    defines: containers
+    influxdb:
+      image: influxdb
+      image-tag: latest # "1.7@
+      ports:
+        - '8086:8086'
+      environment:
+        - INFLUXDB_DB=telegraf
+
+telegraf:
+  defines: runnable
+  inherits: ./common
+  version: latest
+  containers:
+    defines: containers
+    telegraf:
+      image: whitenoi5/telegraf
+      image-tag: latest #"1.13"
+      ports:
+        - "6514:6514"
+      # - "8092:8092/udp"
+      # - "8094:8094/tcp"
+      # - "8125:8125/udp"
+      # - "6514:6514/udp" 
+      <<: *environment
+      paths:
+        - /var/run/docker.sock:/var/run/docker.sock
+        # - <- `${moncc-volume-path}/telegraf:/etc/telegraf`
+
+chronograf:
+  defines: runnable
+  inherits: ./common
+  version: "1.8"
+  containers:
+    defines: containers
+    chronograf:
+      image: chronograf:1.8
+      entrypoint: <- `chronograf --influxdb-url=http://${influxdb_host}:${influxdb_port}`
+      ports:
+        - "8888:8888"
+  # variables:
+  #   defines: variables
+  #   influxdb_host:
+  #     type: string
+  #     value: <- get-hostname("chaos-cluster/influxdb", "influxdb")
+
+# ./templates/icon.yaml:      code: exec("icon-node", "/bin/bash", "-c", `preptools setPRep --url="${args["url"]}" --p2p-endpoint="${args["p2p-endpoint"]}" --nid ${args["nid"]} --keystore /cert/keystore.json --name="${args["name"]}" --country="${args["country"]}" --city="${args["city"]}" --email="${args["email"]}" --website="${args["website"]}" --details="${args["details"]}" -p $PRIVATE_PASSWORD <<< "Y\n"`)
+pumba:
+  defines: runnable
+  containers:
+    defines: containers
+    pumba:
+      image: docker.io/gaiaadm/pumba:latest
+      bash: <- `/bin/sh /root/r.sh`
+      # bash: <- `cp /root/post.sh . && /bin/sh /root/r.sh`
+      paths:
+        - /var/run/docker.sock:/var/run/docker.sock
+  files:
+    defines: files
+    r1:
+      path: /root/r.sh
+      container: pumba
+      contents: "while true; do sleep 5; date; done"
+  actions:
+    defines: actions
+    stop-containers:
+      description: Post prices from reporter to Open Price Feed contract
+      code: exec("pumba", "/bin/sh", "-c", `pumba --log-level=info --interval=15s --random stop --duration=7s --restart 're2:^stopme*'`)
+
+# cluster 
+telegraf-1:
+  defines: runnable
+  inherits: ./telegraf
+  
+telegraf-2:
+  defines: runnable
+  inherits: ./telegraf
+
+telegraf-3:
+  defines: runnable
+  inherits: ./telegraf
+
+telegraf-4:
+  defines: runnable
+  inherits: ./telegraf
+
+telegraf-5:
+  defines: runnable
+  inherits: ./telegraf
+
+telegraf-6:
+  defines: runnable
+  inherits: ./telegraf
+
+system:
+  defines: process-group
+  runnable-list:
+      - /chaos-cluster/influxdb
+      - /chaos-cluster/chronograf
+      - /chaos-cluster/telegraf-1
+      - /chaos-cluster/telegraf-2
+      - /chaos-cluster/telegraf-3
+      - /chaos-cluster/telegraf-4
+      - /chaos-cluster/telegraf-5
+#      - /chaos-cluster/telegraf-6
