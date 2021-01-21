@@ -8,6 +8,8 @@ nginx-1:
       image: nginx:latest
       ports:
         - 0.0.0.0:80:80
+      paths:
+        - <- `${volume}:${internal-volume}`
   variables:
     defines: variables
     volume:
@@ -16,6 +18,13 @@ nginx-1:
     internal-volume:
       type: string
       value: "/usr/share/nginx/html" 
+  files:
+    defines: files
+    server-def:
+      container: nginx
+      path: /usr/share/nginx/html/index.html
+      mode: 0777
+      contents: Hello!
 
 qa-system:
   defines: group
