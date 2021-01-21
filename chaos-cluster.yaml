@@ -127,4 +127,4 @@ system:
       - /chaos-cluster/telegraf-3
       - /chaos-cluster/telegraf-4
       - /chaos-cluster/telegraf-5
-#      - /chaos-cluster/telegraf-6
+      # - /chaos-cluster/telegraf-6
