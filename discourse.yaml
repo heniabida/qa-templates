@@ -1,0 +1,191 @@
+namespace: /discourse
+
+reverse-proxy:
+  inherits: /nginx/reverse-proxy-ssl-certbot
+  variables:
+    proxy-pass-protocol: http
+    proxy-pass-url: <- get-hostname("discourse/discourse", "discourse")
+    proxy-pass-port: 3000
+
+postgres:
+  defines: runnable
+  inherits: /bitnami-postgres/12-no-pwd
+
+redis:
+  defines: runnable
+  inherits: /bitnami-redis/6.0-debian-10-no-pwd
+
+discourse:
+  defines: runnable
+  containers:
+    defines: containers
+    discourse:
+      image: docker.io/bitnami/discourse:2-debian-10 
+      ports:
+        - <- `${rpc-port}:3000`
+      environment:
+        - <- `POSTGRESQL_CLIENT_CREATE_DATABASE_NAME=${postgres_name}`
+        - <- `POSTGRESQL_CLIENT_CREATE_DATABASE_USERNAME=${postgres_user}`
+        - <- `POSTGRESQL_ROOT_USER=${postgres_root}`
+        - <- `POSTGRESQL_CLIENT_CREATE_DATABASE_PASSWORD=${postgres_pass}`
+        - <- `DISCOURSE_POSTGRESQL_NAME=${postgres_name}`
+        - <- `DISCOURSE_POSTGRESQL_USERNAME=${postgres_user}`
+        - <- `DISCOURSE_POSTGRESQL_PASSWORD=${postgres_pass}`
+        - <- `POSTGRESQL_HOST=${postgres_host}`
+        - <- `DISCOURSE_HOSTNAME=${discourse_url}`
+        - <- `REDIS_HOST=${redis_host}`
+      paths:
+        - <- `${volume}:${internal-volume}`
+  variables:
+    defines: variables
+    rpc-port:
+      type: int
+      value: 3000
+    volume:
+      type: string
+      value: <- `${moncc-volume-path}/discourse_data`
+    internal-volume:
+      type: string
+      value: "/bitnami"
+    postgres_root:
+      type: string
+      value: postgres
+    postgres_name:
+      type: string
+      value: "bitnami_application"
+    postgres_user:
+      type: string
+      value: "bn_discourse" 
+    postgres_pass:
+      type: string
+      value: "bitnami1"
+    postgres_host:
+      type: string
+      value: <- get-hostname("discourse/postgres", "postgres") 
+    redis_host:
+      type: string
+      value: <- get-hostname("discourse/redis", "redis")
+    discourse_url:
+      type: string
+      value: discourse.synpax.xyz
+  depends:
+    defines: depends
+    wait-for:
+      runnables:
+        - /discourse/postgres
+        - /discourse/redis
+      timeout: 60
+
+sidekiq-2:
+  defines: runnable
+  inherits: ./discourse
+  containers:
+    discourse:
+      entrypoint: <- `nami start --foreground discourse-sidekiq`
+      environment:
+        - <- `DISCOURSE_POSTGRESQL_NAME=${postgres_name}`
+        - <- `DISCOURSE_POSTGRESQL_USERNAME=${postgres_user}`
+        - <- `DISCOURSE_POSTGRESQL_PASSWORD=${postgres_pass}`
+        - <- `POSTGRESQL_HOST=${postgres_host}`
+        - <- `DISCOURSE_PORT=${rpc-port}`
+        - <- `DISCOURSE_HOSTNAME=${discourse_url}`
+  depends:
+    defines: depends
+    wait-for:
+      runnables:
+        - /discourse/discourse
+      timeout: 60
+
+sidekiq:
+  defines: runnable
+  containers:
+    defines: containers 
+    sidekiq:
+      image: docker.io/whitenoi5/discourse-sidekiq:2-debian-10
+      environment:
+        - <- `REDIS_HOST=${redis_host}`
+        - <- `POSTGRESQL_HOST=${postgres_host}`
+        - <- `DISCOURSE_POSTGRESQL_NAME=${postgres_name}`
+        - <- `DISCOURSE_POSTGRESQL_USERNAME=${postgres_user}`
+        - <- `DISCOURSE_POSTGRESQL_PASSWORD=${postgres_pass}`
+        - <- `DISCOURSE_HOST=${discourse_host}`
+        - <- `DISCOURSE_PORT=${discourse_port}`
+        - <- `DISCOURSE_HOSTNAME=${discourse_url}`
+  variables:
+    defines: variables
+    postgres_name:
+      type: string
+      value: "bitnami_application"
+    redis_host:
+      type: string
+      value: <- get-hostname("discourse/redis", "redis")
+    postgres_user:
+      type: string
+      value: "bn_discourse" 
+    postgres_pass:
+      type: string
+      value: "bitnami1"
+    discourse_host:
+      type: string
+      value: <- get-hostname("discourse/discourse", "discourse") 
+    discourse_port:
+      type: string
+      value: 3000 
+    discourse_url:
+      type: string
+      value: synpax.xyz
+    postgres_host:
+      type: string
+      value: <- get-hostname("discourse/postgres", "postgres")
+
+nginx:
+  defines: runnable
+  inherits: /discourse/reverse-proxy
+  variables:
+    ssl: false
+  depends:
+    defines: depends
+    wait-for:
+      runnables:
+        - /discourse/discourse
+      timeout: 60
+
+nginx-ssl:
+  defines: runnable
+  inherits: /discourse/reverse-proxy
+  variables:
+    server-name: synpax.xyz
+    email: rymarzm@gmail.com
+    ssl: true
+  depends:
+    defines: depends
+    wait-for:
+      runnables:
+        - /discourse/discourse
+      timeout: 60
+
+dev-stack:
+  defines: process-group
+  runnable-list:
+    - /discourse/postgres
+    - /discourse/redis
+    - /discourse/discourse
+    - /discourse/sidekiq
+
+stack:
+  defines: process-group
+  runnable-list:
+    - /discourse/postgres
+    - /discourse/redis
+    - /discourse/discourse
+    - /discourse/sidekiq
+    - /discourse/nginx
+
+stack-ssl:
+  defines: process-group
+  runnable-list:    
+    - /discourse/postgres
+    - /discourse/redis
+    - /discourse/discourse
+    - /discourse/sidekiq-2
+    - /discourse/nginx-ssl
