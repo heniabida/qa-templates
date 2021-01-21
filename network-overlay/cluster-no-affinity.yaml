@@ -1,4 +1,4 @@
-namespace: /chainlink2
+namespace: /qa-no-affinity
 
 chainlink-db:
   defines: runnable
@@ -8,4 +8,10 @@ chainlink-1:
   defines: runnable
   inherits: /chainlink/common
   variables:
-    db-host: <- get-hostname("chainlink2/chainlink-db", "postgres")
+    db-host: <- get-hostname("qa-no-affinity/chainlink-db", "postgres")
+
+system:
+  defines: process-group
+  runnable-list:
+    - /qa-no-affinity/chainlink-db
+    - /qa-no-affinity/chainlink-1
