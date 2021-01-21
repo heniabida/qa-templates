@@ -1,0 +1,32 @@
+namespace: /qa
+
+nginx-1:
+  defines: runnable
+  containers:
+    defines: containers
+    nginx:
+      image: nginx:latest
+      ports:
+        - 0.0.0.0:80:80
+      paths:
+        - <- `${volume}:${internal-volume}`
+  variables:
+    defines: variables
+    volume:
+      type: string
+      value: <- `${moncc-volume-path}/www`
+    internal-volume:
+      type: string
+      value: "/usr/share/nginx/html" 
+  files:
+    defines: files
+    server-def:
+      container: nginx
+      path: /usr/share/nginx/html/index.html
+      mode: 0777
+      contents: Hello!
+
+qa-system:
+  defines: group
+  runnable-list:
+    - /qa/nginx-1
